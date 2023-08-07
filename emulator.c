@@ -1,6 +1,7 @@
 #include "emulator.h"
 #include <stdio.h>
-
+#include <stdlib.h>
+#include <time.h>
 /*
 nnn or addr - A 12-bit value, the lowest 12 bits of the instruction
 n or nibble - A 4-bit value, the lowest 4 bits of the instruction
@@ -126,7 +127,7 @@ int emulator(unsigned char* buffer, int pc)
 			switch(kk)
 			{
 				case 0x0000: printf("SYS 	0x%04x",nnn);	break;
-				case 0x00E0: printf("CLS");					break;
+				case 0x00E0: printf("CLS	NOT IMPLEMENTED");					break;
 				case 0x00EE: 
 					printf("RET");
 					state.sp++;
@@ -227,16 +228,30 @@ int emulator(unsigned char* buffer, int pc)
 				default: printf("UNKNOWN 0x8");				break;
 			}
 		} break;
-		case 0x9000: printf("SNE 	Vx,Vy");			break;
-		case 0xA000: printf("LD  	I,0x%04x",nnn);		break;
-		case 0xB000: printf("JP  	V0,0x%04x",nnn);	break;
-		case 0xC000: printf("RND 	Vx,0x%04x",nnn);	break;
+		case 0x9000: 
+			printf("SNE 	0x%04x,0x%04x",state.V[x],state.V[y]);
+			if(state.V[x] != state.V[y])
+				pc += 2;
+			break;
+		case 0xA000: 
+			printf("LD  	I,0x%04x",nnn);
+			state.I = nnn;
+			break;
+		case 0xB000: 
+			printf("JP  	0x%04x,0x%04x",state.V[0],nnn);
+			pc = state.V[0] + nnn;
+			break;
+		case 0xC000: 
+			printf("RND 	Vx,0x%04x",nnn);
+			srand(time(NULL));
+			state.V[x] = kk & (rand() % 255 + 0);
+			break;
 		case 0xD000: printf("DRW	Vx,Vy,0x%04x",n);	break;
 		case 0xE000:
 		{
 			switch(kk)
 			{
-				case 0x009E: printf("SKIP	Vx");	break;
+				case 0x009E: printf("SKP 	Vx");	break;
 				case 0x00A1: printf("SKNP	Vx");	break;
 				default: printf("UNKNOWN 0xE");		break;
 			}
@@ -245,22 +260,45 @@ int emulator(unsigned char* buffer, int pc)
 		{
 			switch(kk)
 			{
-				case 0x0007: printf("LD  	Vx,DT");	break;
-				case 0x000A: printf("LD  	Vx,K");		break;
-				case 0x0015: printf("LD  	Dt,Vx");	break;
-				case 0x0018: printf("LD  	ST,Vx");	break;
-				case 0x001E: printf("ADD 	I,Vx");		break;
-				case 0x0029: printf("LD  	F,Vx");		break;
-				case 0x0033: printf("LD  	F,Vx");		break;
-				case 0x0055: printf("LD  	[I],Vx");	break;
-				case 0x0065: printf("LD  	Vx,[I]");	break;
+				case 0x0007: 
+					printf("LD  	Vx,DT");
+					state.V[x] = state.delayTimer;
+					break;
+				case 0x000A: printf("LD  	Vx,K	NOT IMPLEMENTED");		break;
+				case 0x0015: 
+					printf("LD  	Dt,Vx");
+					state.delayTimer = state.V[x];
+					break;
+				case 
+					0x0018: printf("LD  	ST,Vx");
+					state.soundTimer = state.V[x];
+					break;
+				case 
+					0x001E: printf("ADD 	I,Vx");
+					state.I += state.V[x];
+					break;
+				case 0x0029: printf("LD  	F,Vx	NOT IMPLEMENTED");		break;
+				case 0x0033: 
+					printf("LD  	F,Vx");
+					state.V[state.I]	= state.V[x] % 10;
+					state.V[state.I+1]	= state.V[x] % (state.V[x]/10) % 10;
+					state.V[state.I+2]	= (state.V[x] >= 200) ? 2 : 1;
+					break;
+				case 0x0055: 
+					printf("LD  	[I],Vx");
+					for(int i = 0; i <= x; i++) // might not be right
+						state.V[state.I+i] = state.V[i];
+					break;
+				case 0x0065: 
+					printf("LD  	Vx,[I]");
+					for(int i = 0; i < x; i++) // might not be right 
+						state.V[i] = state.V[state.I+i];
+					break;
 				default: printf("UNKNOWN 0xF");			break;
 			}
 		} break;
 		default: printf("UNKNOWN");break;
 	}
 	puts("");
-
 	return pc += 2;
-
 }
