@@ -127,12 +127,12 @@ int emulator(unsigned char* buffer, int pc)
 			switch(kk)
 			{
 				case 0x0000: printf("SYS 	0x%04x",nnn);	break;
-				case 0x00E0: printf("CLS	NOT IMPLEMENTED");					break;
+				case 0x00E0: printf("CLS	NOT IMPLEMENTED");	break;
 				case 0x00EE: 
 					printf("RET");
 					state.sp++;
 					break;
-				default: printf("UNKNOWN 0x0");				break;
+				default: printf("UNKNOWN 0x0");	break;
 			}
 		} break;
 		case 0x1000: 
@@ -203,22 +203,22 @@ int emulator(unsigned char* buffer, int pc)
 					}
 					break;
 				case 0x0005: 
-					printf("SUB 	Vx,Vy"); //// MAYBE LOOK
+					printf("SUB 	Vx,Vy"); //// might not be right
 					state.VF = (state.V[x] > state.V[y]);
 					state.V[x] = state.V[x] - state.V[y];
 					break;
 				case 0x0006: 
-					printf("SHR 	Vx,{, Vy}"); //// MAYBE LOOK 
+					printf("SHR 	Vx,{, Vy}"); //// might not be right
 					state.VF = (state.V[x] & 1);
 					state.V[x] >>= 1;
 					break;
 				case 0x0007: 
-					printf("SUBN	0x%04x,0x%04x",state.V[x],state.V[y]); ////// MAYBE LOOK
+					printf("SUBN	0x%04x,0x%04x",state.V[x],state.V[y]); ////// might not be right
 					state.VF = (state.V[y] > state.V[x]);
 					state.V[x] = state.V[y] - state.V[x];
 					break;
 				case 0x000E: 
-					printf("SHL 	0x%04x,{, Vy}",state.V[x]); ///// LOOK MAYBE
+					printf("SHL 	0x%04x,{, Vy}",state.V[x]); ///// might not be right
 					if((state.V[x] & 0x80 )!= 0)
 						state.VF = 1;
 					else
