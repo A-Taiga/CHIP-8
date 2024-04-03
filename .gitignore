@@ -1,0 +1,8 @@
+.DS_Store
+obj/emulator.o
+obj/emulator.o
+obj/window.o
+obj/main.o
+.cache
+Chip8
+compile_commands.json
