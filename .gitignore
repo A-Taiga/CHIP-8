@@ -6,3 +6,4 @@ obj/main.o
 .cache
 Chip8
 compile_commands.json
+out.txt
