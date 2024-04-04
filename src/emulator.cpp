@@ -234,7 +234,6 @@ void CPU::_DXYN() // draw
             window.buffer.set(index,  window.buffer.test(index) ^ pixel);
         }
     }
-    std::this_thread::sleep_for(12.5ms);
 }
 
 void CPU::_EX9E()
@@ -489,6 +488,7 @@ void CPU::run()
     while (pc < size && window.is_running())
     {
         emulator();
+        std::this_thread::sleep_for(1.5ms);
         for (std::size_t i = 0; i < window.buffer.size(); i++)
         {
             if (window.buffer.test(i))
