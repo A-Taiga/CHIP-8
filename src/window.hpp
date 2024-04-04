@@ -12,7 +12,6 @@
 class Window
 {
 	private:
-		int width, height;
 		SDL_Window* window;
 		SDL_Renderer* renderer;
 		bool running;

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <bitset>
 #include <cstdint>
 #include <cstdio>
@@ -8,9 +9,8 @@
 #include <stdexcept>
 #include <thread>
 #include "window.hpp"
-
-
-#define SPRITE_TABLE_SIZE 80
+#include <iostream>
+#include <format>
 namespace
 {
     std::array<std::uint8_t, SPRITE_TABLE_SIZE> sprites = 
@@ -32,6 +32,11 @@ namespace
         0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
         0xF0, 0x80, 0xF0, 0x80, 0x80  // F
     };
+
+    void print (std::string&& str)
+    {
+        std::cout << str;
+    }
 }
 
 CPU::CPU (std::string&& fileName)
@@ -53,6 +58,10 @@ void CPU::load_ROM (const std::string&& fileName)
     if (std::fread (RAM.data() + 0x200, size, 1, file) == -1UL) throw std::runtime_error (std::strerror(errno));
     fclose (file);
     std::memcpy(RAM.data(), sprites.data(), SPRITE_TABLE_SIZE);
+
+    for (auto&& i : screen)
+        for (auto&& j : i)
+                j = 0;
 }
 CPU::~CPU(){}
 
@@ -82,7 +91,8 @@ void CPU::_0NNN()
 
 void CPU::_00E0()
 {
-    screen.reset();
+    // screen.reset();
+    std::for_each(screen.begin(), screen.end(), [](auto&& s){s.fill(0);});
 }
 
 void CPU::_00EE()
@@ -209,23 +219,27 @@ void CPU::_CXNN()
     V[x] = random_byte() & nn;
 }
 
-void CPU::_DXYN()
+void CPU::_DXYN() // draw
 {
+    using namespace std::chrono_literals;
     bool shift;
-    std::size_t index;
     std::uint8_t loc;
-    bool pixel;
+    std::uint8_t px = V[x] % 64;
+    std::uint8_t py = V[y] % 32;
     V[0xF] = 0;
-    for (std::size_t i = 0; i < n; i++)
+    for (std::uint8_t i = 0; i < n; i++)
     {
+        std::uint8_t offset_y = py + i;
+        if (offset_y >= CHIP_H)
+            break;
         loc = RAM[I+i];
-        for (std::size_t j = 0; j < 8; j++)
+        for (std::uint8_t j = 0; j < 8; j++)
         {
+            std::uint8_t offset_x = px + j;
+            if (offset_x >= CHIP_W) break;
             shift = (loc << j) & 0x80;
-            index = (((j+V[x]) % 64) + CHIP_W * ((i+V[y]) % 32));
-            pixel = screen.test(index);
-            V[0xF] = (shift && pixel) ? 1 : V[0xF];
-            screen.set(index, shift ^ pixel);
+            V[0xF] = (shift && screen[offset_x][offset_y]) ? 1 : V[0xF];
+            screen[offset_x][offset_y] ^= shift;
         }
     }
 }
@@ -248,23 +262,25 @@ void CPU::_FX07()
     V[x] = DT;
 }
 
-void CPU::_FX0A()
+void CPU::_FX0A() // i don't like this idk how to call poll from a different thread T_T
 {
-    bool wait = true;
-    std::uint8_t key;
-    while (wait)
+    bool flag = true;
+    std::uint8_t k;
+    while (flag)
     {
-        for (std::size_t i = 0; i < keys.size(); i++)
+        window.poll(keys);
+        if (keys.any())
         {
-            window.poll(keys);
-            if(keys[i])
+            std::uint8_t key = keys.to_ulong();
+            while (key & keys.to_ulong())
             {
-                key = (std::uint8_t)i;
-                wait = false;
+                window.poll(keys);
+                flag = false;
+                k = static_cast<std::uint8_t>(key);
             }
         }
     }
-    V[x] = key;
+    V[x] = k;
 }
 
 void CPU:: _FX15()
@@ -404,74 +420,75 @@ void CPU::disassembler()
 	x	= (opcode >> 8) & 0x00F;
 	y	= (opcode >> 4) & 0x00F;
 	nn	= opcode & 0x0FF;
-
+    print (std::format("[0x{:4<X}] 0x{:<X} ", pc, opcode));
     switch (opcode & 0xF000)
     {
         case 0x0000:
         {
             switch (nn)
             {
-                case 0x0000: break;
-                case 0x00E0: break;
-                case 0x00EE:  break;
-                default: break;
+                case 0x0000: print ("CALL"); break;
+                case 0x00E0: print ("CLS"); break;
+                case 0x00EE: print ("RET"); break;
+                default: print ("UNKNOWN 0x0000"); break;
             }
         } break;
-        case 0x1000: break;
-        case 0x2000: break;
-        case 0x3000: break;
-        case 0x4000: break;
-        case 0x5000: break;
-        case 0x6000: break;
-        case 0x7000: break;
+        case 0x1000: print ("JP addr"); break;
+        case 0x2000: print ("CALL addr"); break;
+        case 0x3000: print ("SE Vx, byte"); break;
+        case 0x4000: print ("SNE Vx, byte"); break;
+        case 0x5000: print ("SE Vx, Vy"); break;
+        case 0x6000: print ("LD Vx, byte"); break;
+        case 0x7000: print ("ADD Vx, byte"); break;
         case 0x8000:
         {
             switch (n)
             {
-                case 0x0000: break;
-                case 0x0001: break;
-                case 0x0002: break;
-                case 0x0003: break;
-                case 0x0004: break;
-                case 0x0005: break;
-                case 0x0006: break;
-                case 0x0007: break;
-                case 0x000E: break;
-                default: break;
+                case 0x0000: print ("LD Vx, Vy");break;
+                case 0x0001: print ("OR Vx, Vy"); break;
+                case 0x0002: print ("AND Vx, Vy"); break;
+                case 0x0003: print ("XOR Vx, Vy"); break;
+                case 0x0004: print ("ADD Vx, Vy"); break;
+                case 0x0005: print ("SUB Vx, Vy"); break;
+                case 0x0006: print ("SHR Vx, {, Vy}"); break;
+                case 0x0007: print ("SUBN Vx, Vy"); break;
+                case 0x000E: print ("SHL Vx {, Vy}"); break;
+                default: print ("UNKNOWN 0x8000"); break;
             }
         } break;
-        case 0x9000: break;
-        case 0xA000: break;
-        case 0xB000: break;
-        case 0xC000: break;
-        case 0xD000: break;
+        case 0x9000: print ("SNE Vx, Vy"); break;
+        case 0xA000: print ("LD I, addr"); break;
+        case 0xB000: print ("JP V0, addr"); break;
+        case 0xC000: print ("RND Vx, byte"); break;
+        case 0xD000: print ("DRW Vx, Vy, nibble"); break;
         case 0xE000:
         {
             switch (nn)
             {
-                case 0x009E: break;
-                case 0x00A1: break;
-                default: break;
+                case 0x009E: print ("SKP Vx"); break;
+                case 0x00A1: print ("SKNP Vx"); break;
+                default: print ("UNKNOWN 0xE000");
             }
         } break;
         case 0xF000:
         {
             switch (nn)
             {
-                case 0x0007: break;
-                case 0x000A: break;
-                case 0x0015: break;
-                case 0x0018: break;
-                case 0x001E: break;
-                case 0x0029: break;
-                case 0x0033: break;
-                case 0x0055: break;
-                case 0x0065: break;
-                default: break;
+                case 0x0007: print ("LD Vx, DT"); break;
+                case 0x000A: print ("LD Vx, k"); break;
+                case 0x0015: print ("LD DT, Vx"); break;
+                case 0x0018: print ("LD ST, Vx"); break;
+                case 0x001E: print ("ADD I, Vx"); break;
+                case 0x0029: print ("LD F, Vx"); break;
+                case 0x0033: print ("LD B, Vx"); break;
+                case 0x0055: print ("LD [I], Vx"); break;
+                case 0x0065: print ("LD Vx, [I]"); break;
+                default: print ("UNKNOWN 0xF000"); break;
             }
         } break;
         default: break;
     }
+    print ("\n");
     pc += 2;
 }
 void CPU::run()
@@ -481,16 +498,19 @@ void CPU::run()
     pc = 0x200;
     while (pc < size && window.is_running())
     {
+        // disassembler();
         emulator();
-        for (std::size_t i = 0; i < screen.size(); i++)
+        for (std::size_t y = 0; y < CHIP_H; y++)
         {
-            if (screen.test(i))
+            for (std::size_t x = 0; x < CHIP_W; x++)
             {
-                window.draw_rect(i%CHIP_W, (i / CHIP_W)%CHIP_H);
+                if (screen[x][y])
+                    window.draw_rect(x, y);
             }
         }
         window.update();
-        // std::this_thread::sleep_for(2000000ns);
+        std::this_thread::sleep_for(1.5ms);
+
     }
 }
 

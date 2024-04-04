@@ -10,6 +10,7 @@
 
 #define MAIN_MEM_SIZE 4096
 #define KEY_SIZE 16
+#define SPRITE_TABLE_SIZE 80
 
 class CPU
 {
@@ -20,7 +21,7 @@ class CPU
         std::array      <std::uint8_t, MAIN_MEM_SIZE> RAM; // main memory
         std::array      <std::uint8_t, 16> V; // registers
         std::array      <std::uint16_t, 16> stack; // stack 
-        std::bitset     <CHIP_W * CHIP_H> screen;
+        std::array      <std::array<std::uint8_t, CHIP_H>, CHIP_W> screen;
         std::bitset     <KEY_SIZE> keys;
         std::uint16_t   pc; // program counter
         std::uint16_t   I;  // sotres mem addresses
