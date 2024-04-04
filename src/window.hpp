@@ -3,10 +3,10 @@
 #include <SDL2/SDL_render.h>
 #include <bitset>
 
-#define CHIP_W 64
-#define CHIP_H 32
-#define SCREEN_WIDTH CHIP_W * 10
-#define SCREEN_HEIGHT CHIP_H * 10
+#define BUFFER_WIDTH 64
+#define BUFFER_HEIGHT 32
+#define SCREEN_WIDTH BUFFER_WIDTH * 10
+#define SCREEN_HEIGHT BUFFER_HEIGHT * 10
 #define PIXEL_SIZE 10
 
 class Window
@@ -16,12 +16,13 @@ class Window
 		SDL_Renderer* renderer;
 		bool running;
 	public:
-		Window();
-		~Window();
-		void update();
-		void poll(std::bitset<16>& keys);
-		bool is_running();
-		void draw_rect(int x, int y);
+		std::bitset<BUFFER_WIDTH * BUFFER_HEIGHT> buffer;
+		Window ();
+		~Window ();
+		void update ();
+		void poll (std::bitset<16>& keys);
+		bool is_running ();
+		void draw_rect (int x, int y);
 };
 
 #endif 

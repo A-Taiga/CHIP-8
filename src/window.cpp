@@ -109,3 +109,4 @@ bool Window::is_running()
 {
 	return running;
 }
+

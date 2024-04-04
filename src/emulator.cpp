@@ -5,14 +5,15 @@
 #include "emulator.hpp"
 #include <cstring>
 #include <random>
-#include <array>
 #include <stdexcept>
 #include <thread>
 #include "window.hpp"
 #include <iostream>
 #include <format>
+
 namespace
 {
+    using namespace std::chrono_literals;
     std::array<std::uint8_t, SPRITE_TABLE_SIZE> sprites = 
     {
         0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -58,12 +59,8 @@ void CPU::load_ROM (const std::string&& fileName)
     if (std::fread (RAM.data() + 0x200, size, 1, file) == -1UL) throw std::runtime_error (std::strerror(errno));
     fclose (file);
     std::memcpy(RAM.data(), sprites.data(), SPRITE_TABLE_SIZE);
-
-    for (auto&& i : screen)
-        for (auto&& j : i)
-                j = 0;
+    _00E0(); // clear screen
 }
-CPU::~CPU(){}
 
 uint8_t CPU::random_byte()
 {
@@ -75,8 +72,7 @@ uint8_t CPU::random_byte()
 
 void CPU::timers_thread ()
 {
-    using namespace std::chrono_literals;
-    while (true)
+    while (window.is_running())
     {
         if (DT > 0) DT--;
         if (ST > 0) ST--;
@@ -91,8 +87,7 @@ void CPU::_0NNN()
 
 void CPU::_00E0()
 {
-    // screen.reset();
-    std::for_each(screen.begin(), screen.end(), [](auto&& s){s.fill(0);});
+    window.buffer.reset();
 }
 
 void CPU::_00EE()
@@ -221,41 +216,37 @@ void CPU::_CXNN()
 
 void CPU::_DXYN() // draw
 {
-    using namespace std::chrono_literals;
-    bool shift;
-    std::uint8_t loc;
-    std::uint8_t px = V[x] % 64;
-    std::uint8_t py = V[y] % 32;
+    std::uint8_t px = V[x] % BUFFER_WIDTH;
+    std::uint8_t py = V[y] % BUFFER_HEIGHT;
     V[0xF] = 0;
-    for (std::uint8_t i = 0; i < n; i++)
+    for (std::uint8_t dy = 0; dy < n; dy++)
     {
-        std::uint8_t offset_y = py + i;
-        if (offset_y >= CHIP_H)
-            break;
-        loc = RAM[I+i];
-        for (std::uint8_t j = 0; j < 8; j++)
+        std::uint8_t ry = py + dy;
+        if (ry >= BUFFER_HEIGHT) break;
+        std::uint8_t loc = RAM[I+dy];
+        for (std::uint8_t dx = 0; dx < 8; dx++)
         {
-            std::uint8_t offset_x = px + j;
-            if (offset_x >= CHIP_W) break;
-            shift = (loc << j) & 0x80;
-            V[0xF] = (shift && screen[offset_x][offset_y]) ? 1 : V[0xF];
-            screen[offset_x][offset_y] ^= shift;
+            std::uint8_t rx = px + dx;
+            if (rx >= BUFFER_WIDTH) break;
+            bool pixel = (loc << dx) & 0x80;
+            std::size_t index = rx + BUFFER_WIDTH * ry;
+            V[0xF] = (pixel && window.buffer.test(index)) ? 1 : V[0xF];
+            window.buffer.set(index,  window.buffer.test(index) ^ pixel);
         }
     }
+    std::this_thread::sleep_for(12.5ms);
 }
 
 void CPU::_EX9E()
 {
     std::size_t index = V[x];
     if (keys[index]) pc += 2;
-    // KEYBOARD
 }
 
 void CPU::_EXA1()
 {
     std::size_t index = V[x];
     if (!keys[index]) pc += 2;
-    // KEYBOARD
 }
 void CPU::_FX07()
 {
@@ -266,13 +257,13 @@ void CPU::_FX0A() // i don't like this idk how to call poll from a different thr
 {
     bool flag = true;
     std::uint8_t k;
-    while (flag)
+    while (flag && window.is_running())
     {
         window.poll(keys);
         if (keys.any())
         {
             std::uint8_t key = keys.to_ulong();
-            while (key & keys.to_ulong())
+            while (key & keys.to_ulong() && window.is_running())
             {
                 window.poll(keys);
                 flag = false;
@@ -493,25 +484,19 @@ void CPU::disassembler()
 }
 void CPU::run()
 {
-    using namespace std::chrono_literals;
     timer = std::thread(&CPU::timers_thread, this);
     pc = 0x200;
     while (pc < size && window.is_running())
     {
-        // disassembler();
         emulator();
-        for (std::size_t y = 0; y < CHIP_H; y++)
+        for (std::size_t i = 0; i < window.buffer.size(); i++)
         {
-            for (std::size_t x = 0; x < CHIP_W; x++)
-            {
-                if (screen[x][y])
-                    window.draw_rect(x, y);
-            }
+            if (window.buffer.test(i))
+                window.draw_rect(i % BUFFER_WIDTH, i / BUFFER_WIDTH);
         }
         window.update();
-        std::this_thread::sleep_for(1.5ms);
-
     }
+    timer.join();
 }
 
 

@@ -2,7 +2,6 @@
 #define EMULATOR_HPP
 
 #include <cstdint>
-#include <array>
 #include <string>
 #include "window.hpp"
 #include <bitset>
@@ -11,7 +10,6 @@
 #define MAIN_MEM_SIZE 4096
 #define KEY_SIZE 16
 #define SPRITE_TABLE_SIZE 80
-
 class CPU
 {
     private:
@@ -21,7 +19,6 @@ class CPU
         std::array      <std::uint8_t, MAIN_MEM_SIZE> RAM; // main memory
         std::array      <std::uint8_t, 16> V; // registers
         std::array      <std::uint16_t, 16> stack; // stack 
-        std::array      <std::array<std::uint8_t, CHIP_H>, CHIP_W> screen;
         std::bitset     <KEY_SIZE> keys;
         std::uint16_t   pc; // program counter
         std::uint16_t   I;  // sotres mem addresses
@@ -34,7 +31,6 @@ class CPU
         std::uint8_t    x;     // lower 4-bits of the higher byte
         std::uint8_t    y;     // upper 4-bits of the lower byte
         std::uint8_t    nn;    // byte lowest 8 bits of the instruction
-        
         std::uint8_t random_byte();
         void load_ROM (const std::string&& fileName); 
         void timers_thread ();
@@ -51,7 +47,6 @@ class CPU
         CPU();
         CPU(std::string&& fileName);
         CPU(const std::string&& fileName);
-        ~CPU();
         void disassembler();
         void emulator();
         void run();
