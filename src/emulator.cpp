@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <bitset>
 #include <cstdint>
 #include <cstdio>
@@ -149,7 +148,6 @@ void CPU::_8XY2()
 {
     V[x] = V[x] & V[y];
     V[0xF] = 0;
-
 }
 
 void CPU::_8XY3()
