@@ -1,6 +1,6 @@
 EXENAME = Chip8
 CXX = clang++
-CXXFLAGS = -std=c++20 -Wall -Wextra -Werror -Wformat -I imgui
+CXXFLAGS = -std=c++20 -Wall -Wextra -Werror -Wformat -I imgui -I src/include
 UNAME_S := $(shell uname -s)
 VPATH = src: imgui:
 OBJ_DIR = obj/
