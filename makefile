@@ -1,27 +1,41 @@
-CC = clang++
-CCFLAGS = -std=c++20 -O0 -g -Wall -Wextra -I /usr/local/include
-CXXFLAG = `pkg-config --libs --cflags sdl2`
-OBJDIR = obj/
-VPATH = src: obj:
 EXENAME = Chip8
-SOURCES = main.cpp emulator.cpp window.cpp
-OBJECTS := $(SOURCES:%.cpp=$(OBJDIR)%.o)
-.PHONY: clean run
+CXX = clang++
+CXXFLAGS = -std=c++20 -Wall -Wextra -Werror -Wformat -I imgui
+UNAME_S := $(shell uname -s)
+VPATH = src: imgui:
+OBJ_DIR = obj/
+SOURCES = main.cpp emulator.cpp window.cpp imgui.cpp imgui_demo.cpp imgui_draw.cpp imgui_tables.cpp
+SOURCES += imgui_widgets.cpp imgui_impl_sdl2.cpp imgui_impl_sdlrenderer2.cpp
+OBJECTS = $(SOURCES:%.cpp=$(OBJ_DIR)%.o)
+LIBS = 
+
+ifeq ($(UNAME_S), Darwin)
+	ECHO_MESSAGE = "OS X compiled"
+	LIBS += -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo `sdl2-config --libs`
+	LIBS += -L/usr/local/lib -L/opt/local/lib
+	CXXFLAGS += `sdl2-config --cflags`
+	CXXFLAGS += -I/usr/local/include -I/opt/local/include
+endif
+
 
 all: $(EXENAME)
+	@echo ECHO_MESSAGE
 
 $(EXENAME): $(OBJECTS)
-	@echo linking
-	$(CC) $(CCFLAGS) $(CXXFLAG) $^ -o $@
-	@echo build success
+	$(CXX) -o $@ $^ $(CXXFLAG) $(LIBS)
 
-$(OBJECTS): $(OBJDIR)%.o: %.cpp
-	$(CC) $(CCFLAGS) -c $< -o $@
+$(OBJECTS): $(OBJ_DIR)%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+.PHONY: clean run
 
 clean:
-	-rm $(OBJDIR)*.o $(EXENAME)
-run:
-	./$(EXENAME)
+	rm -f $(EXENAME) $(OBJECTS)
+
+
+
+
+
 
 
 
