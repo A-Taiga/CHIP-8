@@ -9,6 +9,11 @@
 #include "window.hpp"
 #include <iostream>
 #include <format>
+#include <filesystem>
+#include "event_handler.hpp"
+#include "imgui.h"
+#include "imgui_impl_sdl2.h"
+#include "imgui_impl_sdlrenderer2.h"
 
 namespace
 {
@@ -36,6 +41,50 @@ namespace
     void print (std::string&& str)
     {
         std::cout << str;
+    }
+    
+    void parse_roms(std::string path, std::vector<std::string>& vec)
+    {
+        auto files = std::filesystem::path(path);
+        for (const auto& entry : std::filesystem::directory_iterator(path))
+        {
+            std::string currentPath = entry.path().string();
+            if (currentPath.find("hires") != currentPath.npos)
+                continue;
+            if (std::filesystem::status(entry).type() == std::filesystem::file_type::directory)
+                parse_roms(currentPath, vec);
+
+            if (currentPath.find(".ch8") != currentPath.npos)
+                vec.push_back(currentPath.substr(currentPath.find("/")+1, currentPath.find(".")-currentPath.find("/")-1));
+        }
+    }
+
+    std::size_t combo_box(const std::vector<std::string>& items)
+    {
+        static std::size_t item_current_idx = 0;
+        const std::string& combo_preview_value = items[item_current_idx];
+        static float windowHeight = ImGui::GetWindowHeight();
+        static float comboHeight = ImGui::GetTextLineHeightWithSpacing() + ImGui::GetFrameHeightWithSpacing();
+        static float yPos = (windowHeight - comboHeight) * 0.5f;
+
+        // Set cursor position to center the combo box vertically
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + yPos);
+
+        if (ImGui::BeginCombo("##", combo_preview_value.c_str(), ImGuiComboFlags_PopupAlignLeft))
+        {
+            for (std::size_t n = 0; n < items.size(); n++)
+            {
+                const bool is_selected = (item_current_idx == n);
+                if (ImGui::Selectable(items[n].c_str(), is_selected))
+                    item_current_idx = n;
+
+                // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+                if (is_selected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+        return item_current_idx;
     }
 }
 
@@ -71,7 +120,7 @@ uint8_t CPU::random_byte()
 
 void CPU::timers_thread ()
 {
-    while (window.is_running())
+    while (window.get_running())
     {
         if (DT > 0) DT--;
         if (ST > 0) ST--;
@@ -254,15 +303,15 @@ void CPU::_FX0A() // i don't like this idk how to call poll from a different thr
 {
     bool flag = true;
     std::uint8_t k;
-    while (flag && window.is_running())
+    while (flag && window.get_running())
     {
-        window.poll(keys);
+        Event::poll(window, keys);
         if (keys.any())
         {
             std::uint8_t key = keys.to_ulong();
-            while (key & keys.to_ulong() && window.is_running())
+            while (key & keys.to_ulong() && window.get_running())
             {
-                window.poll(keys);
+                Event::poll(window, keys);
                 flag = false;
                 k = static_cast<std::uint8_t>(key);
             }
@@ -323,7 +372,7 @@ void CPU::emulator()
     y      = (opcode >> 4) & 0x000F;
     nn     = opcode & 0x00FF;
     pc += 2;
-    window.poll(keys);
+    Event::poll(window, keys);
     switch (opcode & 0xF000)
     {
         case 0x0000:
@@ -402,12 +451,12 @@ nn or byte - An 8-bit value, the lowest 8 bits of the instruction
 
 void CPU::disassembler()
 {
-	opcode = (RAM[pc] << 8) | RAM[pc+1];
-	nnn = opcode & 0xFFF;
-	n	= opcode & 0x00F;
-	x	= (opcode >> 8) & 0x00F;
-	y	= (opcode >> 4) & 0x00F;
-	nn	= opcode & 0x0FF;
+    opcode = (RAM[pc] << 8) | RAM[pc+1];
+    nnn = opcode & 0xFFF;
+    n	= opcode & 0x00F;
+    x	= (opcode >> 8) & 0x00F;
+    y	= (opcode >> 4) & 0x00F;
+    nn	= opcode & 0x0FF;
     print (std::format("[0x{:4<X}] 0x{:<X} ", pc, opcode));
     switch (opcode & 0xF000)
     {
@@ -479,20 +528,87 @@ void CPU::disassembler()
     print ("\n");
     pc += 2;
 }
+
 void CPU::run()
 {
+    // setup gui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    // style
+    ImGui::StyleColorsClassic();
+    // Setup Platform/Renderer backends
+    ImGui_ImplSDL2_InitForSDLRenderer(window.get_window(), window.get_renderer());
+    ImGui_ImplSDLRenderer2_Init(window.get_renderer());
+    std::vector<std::string> items = {};
+    parse_roms("roms/", items);
+    bool pause = false;
     timer = std::thread(&CPU::timers_thread, this);
     pc = 0x200;
-    while (pc < size && window.is_running())
+    std::uint16_t pause_counter = 0;
+    std::size_t item_current_idx;
+    while (pc < size && window.get_running())
     {
+        // Start the Dear ImGui frame
+        ImGui_ImplSDLRenderer2_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
+        {
+            ImGui::Begin("window", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowPos(ImVec2(0, SCREEN_HEIGHT-100));
+            ImGui::SetWindowSize(ImVec2(SCREEN_WIDTH,100));
+            ImGui::SetWindowFontScale(1.5);
+            item_current_idx = combo_box(items);
+            ImGui::SameLine();
+            if (ImGui::Button("Load ROM"))
+            {
+                puts("LOAD ROM");
+                std::string rom = "roms/";
+                rom += items[item_current_idx] + ".ch8";
+                load_ROM(std::move(rom));
+                V.fill(0);
+                stack.fill(0);
+                pc = 0x200;
+
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("PAUSE"))
+            {
+                puts("PAUSE");
+                pause_counter = !pause ? pc : pause_counter;
+                pause = true;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("PLAY"))
+            {
+                puts("PLAY");
+                pause = false;
+            }
+            ImGui::End();
+        }
+        ImGui::Render();
+        
+        SDL_RenderSetScale(window.get_renderer(), io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
+        if (!pause)
+        {
+            SDL_SetRenderDrawColor(window.get_renderer(), 0,0,0,0);
+            SDL_RenderClear(window.get_renderer());
+        }
+        if (pause) pc = pause_counter;
         emulator();
-        std::this_thread::sleep_for(1.5ms);
+        std::this_thread::sleep_for(1.2ms);
         for (std::size_t i = 0; i < window.buffer.size(); i++)
         {
             if (window.buffer.test(i))
                 window.draw_rect(i % BUFFER_WIDTH, i / BUFFER_WIDTH);
         }
-        window.update();
+        if (!pause)
+        {
+            ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+            SDL_RenderPresent(window.get_renderer());
+        }
     }
     timer.join();
 }

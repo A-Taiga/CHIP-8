@@ -1,14 +1,8 @@
 
 #include "emulator.hpp"
-#include <cstdlib>
-int main(int argc, char* argv[])
+int main()
 {
-    if (argc < 2)
-    {
-        printf("Usage: %s <chip8_ROM>\n\n", argv[0]);
-        std::exit(EXIT_SUCCESS);
-    }
-    CPU chip(argv[1]);
+    CPU chip("roms/programs/Chip8 Picture.ch8");
     chip.run();
     return 0;
 }

@@ -4,7 +4,7 @@ CXXFLAGS = -std=c++20 -Wall -Wextra -Werror -Wformat -I imgui -I src/include
 UNAME_S := $(shell uname -s)
 VPATH = src: imgui:
 OBJ_DIR = obj/
-SOURCES = main.cpp emulator.cpp window.cpp imgui.cpp imgui_demo.cpp imgui_draw.cpp imgui_tables.cpp
+SOURCES = main.cpp emulator.cpp window.cpp event_handler.cpp imgui.cpp imgui_demo.cpp imgui_draw.cpp imgui_tables.cpp
 SOURCES += imgui_widgets.cpp imgui_impl_sdl2.cpp imgui_impl_sdlrenderer2.cpp
 OBJECTS = $(SOURCES:%.cpp=$(OBJ_DIR)%.o)
 LIBS = 
@@ -19,7 +19,7 @@ endif
 
 
 all: $(EXENAME)
-	@echo ECHO_MESSAGE
+	@echo $(ECHO_MESSAGE)
 
 $(EXENAME): $(OBJECTS)
 	$(CXX) -o $@ $^ $(CXXFLAG) $(LIBS)
@@ -29,8 +29,11 @@ $(OBJECTS): $(OBJ_DIR)%.o: %.cpp
 
 .PHONY: clean run
 
+run:
+	./Chip8
+
 clean:
-	rm -f $(EXENAME) $(OBJECTS)
+	rm -f $(EXENAME) $(OBJECTS) imgui.ini
 
 
 
