@@ -1,7 +1,6 @@
 #ifndef EMULATOR_HPP
 #define EMULATOR_HPP
 
-#include <chrono>
 #include <cstdint>
 #include <string>
 #include "window.hpp"

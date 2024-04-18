@@ -1,5 +1,4 @@
 #include <bitset>
-#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include "emulator.hpp"
