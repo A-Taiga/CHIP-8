@@ -7,4 +7,3 @@ obj/main.o
 Chip8
 compile_commands.json
 out.txt
-imgui.ini
