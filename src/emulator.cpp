@@ -63,6 +63,7 @@ namespace
     {
         static std::size_t item_current_idx = 0;
         const std::string& combo_preview_value = items[item_current_idx];
+
         if (ImGui::BeginCombo("##", combo_preview_value.c_str(), ImGuiComboFlags_PopupAlignLeft))
         {
             for (std::size_t n = 0; n < items.size(); n++)
@@ -569,9 +570,9 @@ void CPU::render_handler ()
             static float    posY = (windowSize.y - comboHeight) * 0.5f;
 
             ImGui::SetCursorPosY(posY);
+
             item_current_idx = combo_box(items);
             ImGui::SameLine();
-            
             if (ImGui::Button("Load ROM"))
             {
                 pause = false;
@@ -648,7 +649,7 @@ void CPU::run()
     while (pc < size && window.get_running())
     {
         emulator();
-        std::this_thread::sleep_for(1.2ms);
+        std::this_thread::sleep_for(2ms);
     }
 
     timer_thread.join();
