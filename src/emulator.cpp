@@ -651,9 +651,13 @@ void CPU::run()
         emulator();
         std::this_thread::sleep_for(2ms);
     }
-
+    
     timer_thread.join();
     render_thread.join();
+    
+    ImGui_ImplSDLRenderer2_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
 }
 
 

@@ -33,7 +33,7 @@ run:
 	./Chip8
 
 clean:
-	rm -f $(EXENAME) $(OBJECTS) imgui.ini
+	rm -f $(EXENAME) $(OBJECTS)
 
 
 
