@@ -1,7 +1,6 @@
 #ifndef WINDOW_HPP
 #define WINDOW_HPP
 #include <SDL2/SDL_render.h>
-#include <bitset>
 
 #define BUFFER_WIDTH 64
 #define BUFFER_HEIGHT 32
@@ -16,7 +15,6 @@ class Window
         SDL_Renderer* renderer;
         bool running;
     public:
-        std::bitset<BUFFER_WIDTH * BUFFER_HEIGHT> buffer;
         Window ();
         ~Window ();
         void update ();

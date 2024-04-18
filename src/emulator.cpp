@@ -1,4 +1,5 @@
 #include <bitset>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include "emulator.hpp"
@@ -63,7 +64,7 @@ namespace
     {
         static std::size_t item_current_idx = 0;
         const std::string& combo_preview_value = items[item_current_idx];
-
+        ImGui::SetNextItemWidth(590); // fix (magic numbers are bad!!!!!!)
         if (ImGui::BeginCombo("##", combo_preview_value.c_str(), ImGuiComboFlags_PopupAlignLeft))
         {
             for (std::size_t n = 0; n < items.size(); n++)
@@ -100,7 +101,7 @@ void CPU::_0NNN()
 
 void CPU::_00E0()
 {
-    window.buffer.reset();
+    buffer.reset();
 }
 
 void CPU::_00EE()
@@ -242,8 +243,8 @@ void CPU::_DXYN() // draw
             if (rx >= BUFFER_WIDTH) break;
             bool pixel = (loc << dx) & 0x80;
             std::size_t index = rx + BUFFER_WIDTH * ry;
-            V[0xF] = (pixel && window.buffer.test(index)) ? 1 : V[0xF];
-            window.buffer.set(index,  window.buffer.test(index) ^ pixel);
+            V[0xF] = (pixel && buffer.test(index)) ? 1 : V[0xF];
+            buffer.set(index,  buffer.test(index) ^ pixel);
         }
     }
 }
@@ -633,9 +634,9 @@ void CPU::render_handler ()
         SDL_SetRenderDrawColor(window.get_renderer(), 0,0,0,0);
         SDL_RenderClear(window.get_renderer());
 
-        for (std::size_t i = 0; i < window.buffer.size(); i++)
+        for (std::size_t i = 0; i < buffer.size(); i++)
         {
-            if (window.buffer.test(i))
+            if (buffer.test(i))
                 window.draw_rect(i % BUFFER_WIDTH, i / BUFFER_WIDTH);
         }
     }
@@ -645,16 +646,15 @@ void CPU::run()
 {
     timer_thread = std::thread(&CPU::timers_handler, this);
     render_thread = std::thread(&CPU::render_handler, this);
-
     while (pc < size && window.get_running())
     {
         emulator();
-        std::this_thread::sleep_for(2ms);
+        std::this_thread::sleep_for(1.2ms);
     }
     
     timer_thread.join();
     render_thread.join();
-    
+
     ImGui_ImplSDLRenderer2_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();

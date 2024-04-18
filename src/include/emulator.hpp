@@ -1,6 +1,7 @@
 #ifndef EMULATOR_HPP
 #define EMULATOR_HPP
 
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include "window.hpp"
@@ -10,11 +11,13 @@
 #define MAIN_MEM_SIZE 4096
 #define KEY_SIZE 16
 #define SPRITE_TABLE_SIZE 80
+
 class CPU
 {
     private:
         std::array      <std::uint8_t, MAIN_MEM_SIZE> RAM; // main memory
         std::array      <std::uint8_t, 16> V; // registers
+        std::bitset     <BUFFER_WIDTH * BUFFER_HEIGHT> buffer;
         std::array      <std::uint16_t, 16> stack; // stack 
         std::bitset     <KEY_SIZE> keys;
         std::uint16_t   pc; // program counter
@@ -46,7 +49,7 @@ class CPU
         std::thread     timer_thread;
         std::thread     render_thread;
         std::size_t     size;
-
+        
         std::uint8_t random_byte();
         void load_ROM (const std::string&& fileName); 
         void timers_handler ();
