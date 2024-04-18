@@ -13,9 +13,6 @@
 class CPU
 {
     private:
-        Window window;
-        std::thread     timer;
-        std::size_t     size;
         std::array      <std::uint8_t, MAIN_MEM_SIZE> RAM; // main memory
         std::array      <std::uint8_t, 16> V; // registers
         std::array      <std::uint16_t, 16> stack; // stack 
@@ -31,9 +28,7 @@ class CPU
         std::uint8_t    x;     // lower 4-bits of the higher byte
         std::uint8_t    y;     // upper 4-bits of the lower byte
         std::uint8_t    nn;    // byte lowest 8 bits of the instruction
-        std::uint8_t random_byte();
-        void load_ROM (const std::string&& fileName); 
-        void timers_thread ();
+
         void _0NNN(); void _00E0(); void _00EE(); void _1NNN();
         void _2NNN(); void _3XNN(); void _4XNN(); void _5XY0();
         void _6XNN(); void _7XNN(); void _8XY0(); void _8XY1();
@@ -43,12 +38,27 @@ class CPU
         void _EX9E(); void _EXA1(); void _FX07(); void _FX0A();
         void _FX15(); void _FX18(); void _FX1E(); void _FX29();
         void _FX33(); void _FX55(); void _FX65();
+
+        Window          window;
+        bool            pause;
+        bool            reset;
+        std::uint16_t   pause_counter;
+        std::thread     timer_thread;
+        std::thread     render_thread;
+        std::size_t     size;
+
+        std::uint8_t random_byte();
+        void load_ROM (const std::string&& fileName); 
+        void timers_handler ();
+        void render_handler ();
+        void emulator ();
+        
+
     public:
         CPU();
         CPU(std::string&& fileName);
         CPU(const std::string&& fileName);
         void disassembler();
-        void emulator();
         void run();
 };
 

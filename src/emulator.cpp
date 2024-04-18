@@ -63,13 +63,6 @@ namespace
     {
         static std::size_t item_current_idx = 0;
         const std::string& combo_preview_value = items[item_current_idx];
-        static float windowHeight = ImGui::GetWindowHeight();
-        static float comboHeight = ImGui::GetTextLineHeightWithSpacing() + ImGui::GetFrameHeightWithSpacing();
-        static float yPos = (windowHeight - comboHeight) * 0.5f;
-
-        // Set cursor position to center the combo box vertically
-        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + yPos);
-
         if (ImGui::BeginCombo("##", combo_preview_value.c_str(), ImGuiComboFlags_PopupAlignLeft))
         {
             for (std::size_t n = 0; n < items.size(); n++)
@@ -89,43 +82,14 @@ namespace
 }
 
 CPU::CPU (std::string&& fileName)
-: window()
+: pc (0x200)
+, window()
+, pause (false)
+, reset (false)
 {
-    load_ROM(std::forward<std::string>(fileName));
     V.fill(0);
     stack.fill(0);
-}
-
-void CPU::load_ROM (const std::string&& fileName)
-{
-    FILE* file = std::fopen (fileName.c_str(), "rb");
-    if (file == nullptr)                                        throw std::runtime_error (std::strerror(errno));
-    if (std::fseek (file, 0L, SEEK_END) == -1)                  throw std::runtime_error (std::strerror(errno));
-    if ((size = std::ftell (file) + 0x200) == -1UL)             throw std::runtime_error (std::strerror(errno));
-    if (size > 4096)                                            throw std::runtime_error ("ROM > 4096 BYTES");
-    if (std::fseek (file, 0L, SEEK_SET) == -1L)                 throw std::runtime_error (std::strerror(errno));
-    if (std::fread (RAM.data() + 0x200, size, 1, file) == -1UL) throw std::runtime_error (std::strerror(errno));
-    fclose (file);
-    std::memcpy(RAM.data(), sprites.data(), SPRITE_TABLE_SIZE);
-    _00E0(); // clear screen
-}
-
-uint8_t CPU::random_byte()
-{
-    static std::random_device rd;
-    std::mt19937 mt(rd());
-    std::uniform_int_distribution<uint8_t> dist(0, 255);
-    return dist(mt);
-}
-
-void CPU::timers_thread ()
-{
-    while (window.get_running())
-    {
-        if (DT > 0) DT--;
-        if (ST > 0) ST--;
-        std::this_thread::sleep_for(16ms); // 16ms is about 60hz
-    }
+    load_ROM(std::forward<std::string>(fileName));
 }
 
 void CPU::_0NNN()
@@ -303,13 +267,13 @@ void CPU::_FX0A() // i don't like this idk how to call poll from a different thr
 {
     bool flag = true;
     std::uint8_t k;
-    while (flag && window.get_running())
+    while (flag && window.get_running() && !reset)
     {
         Event::poll(window, keys);
         if (keys.any())
         {
             std::uint8_t key = keys.to_ulong();
-            while (key & keys.to_ulong() && window.get_running())
+            while (key & keys.to_ulong() && window.get_running() && !reset)
             {
                 Event::poll(window, keys);
                 flag = false;
@@ -318,8 +282,8 @@ void CPU::_FX0A() // i don't like this idk how to call poll from a different thr
         }
     }
     V[x] = k;
+    reset = false;
 }
-
 void CPU:: _FX15()
 {
     DT = V[x];
@@ -371,7 +335,11 @@ void CPU::emulator()
     x      = (opcode >> 8) & 0x000F;
     y      = (opcode >> 4) & 0x000F;
     nn     = opcode & 0x00FF;
-    pc += 2;
+    if (pause)
+        pc = pause_counter;
+    else 
+        pc += 2;
+    // pc += 2;
     Event::poll(window, keys);
     switch (opcode & 0xF000)
     {
@@ -529,29 +497,65 @@ void CPU::disassembler()
     pc += 2;
 }
 
-void CPU::run()
+void CPU::load_ROM (const std::string&& fileName)
 {
-    // setup gui
+    FILE* file = std::fopen (fileName.c_str(), "rb");
+    if (file == nullptr)                                        throw std::runtime_error (std::strerror(errno));
+    if (std::fseek (file, 0L, SEEK_END) == -1)                  throw std::runtime_error (std::strerror(errno));
+    if ((size = std::ftell (file) + 0x200) == -1UL)             throw std::runtime_error (std::strerror(errno));
+    if (size > 4096)                                            throw std::runtime_error ("ROM > 4096 BYTES");
+    if (std::fseek (file, 0L, SEEK_SET) == -1L)                 throw std::runtime_error (std::strerror(errno));
+    if (std::fread (RAM.data() + 0x200, size, 1, file) == -1UL) throw std::runtime_error (std::strerror(errno));
+    fclose (file);
+    std::memcpy(RAM.data(), sprites.data(), SPRITE_TABLE_SIZE);
+    _00E0(); // clear screen
+}
+
+void CPU::timers_handler ()
+{
+    while (window.get_running())
+    {
+        if (!pause)
+        {
+            if (DT > 0) DT--;
+            if (ST > 0) ST--;
+            std::this_thread::sleep_for(16ms); // 16ms is about 60hz
+        }
+    }
+}
+
+uint8_t CPU::random_byte()
+{
+    static std::random_device rd;
+    std::mt19937 mt(rd());
+    std::uniform_int_distribution<uint8_t> dist(0, 255);
+    return dist(mt);
+}
+
+void CPU::render_handler ()
+{
+    std::vector<std::string> items = {};
+    parse_roms("roms/", items);
+    std::size_t item_current_idx;
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
     // style
     ImGui::StyleColorsClassic();
     // Setup Platform/Renderer backends
     ImGui_ImplSDL2_InitForSDLRenderer(window.get_window(), window.get_renderer());
     ImGui_ImplSDLRenderer2_Init(window.get_renderer());
-    std::vector<std::string> items = {};
-    parse_roms("roms/", items);
-    bool pause = false;
-    timer = std::thread(&CPU::timers_thread, this);
-    pc = 0x200;
-    std::uint16_t pause_counter = 0;
-    std::size_t item_current_idx;
+
+    const ImU32 activeColor = IM_COL32(0,255,0,100);
+    const ImU32 activeHoverColor = IM_COL32(0, 255, 0, 200);
+    const ImVec4 inactiveColor = ImGui::GetStyle().Colors[ImGuiCol_Button];
+    const ImVec4 inactiveColorHover = ImGui::GetStyle().Colors[ImGuiCol_ButtonHovered];
+
+
     while (pc < size && window.get_running())
     {
-        // Start the Dear ImGui frame
         ImGui_ImplSDLRenderer2_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
@@ -560,57 +564,95 @@ void CPU::run()
             ImGui::SetWindowPos(ImVec2(0, SCREEN_HEIGHT-100));
             ImGui::SetWindowSize(ImVec2(SCREEN_WIDTH,100));
             ImGui::SetWindowFontScale(1.5);
+            static ImVec2   windowSize = ImGui::GetWindowSize();
+            static float    comboHeight = ImGui::GetTextLineHeightWithSpacing();
+            static float    posY = (windowSize.y - comboHeight) * 0.5f;
+
+            ImGui::SetCursorPosY(posY);
             item_current_idx = combo_box(items);
             ImGui::SameLine();
+            
             if (ImGui::Button("Load ROM"))
             {
+                pause = false;
+                reset = true;
                 puts("LOAD ROM");
                 std::string rom = "roms/";
                 rom += items[item_current_idx] + ".ch8";
-                load_ROM(std::move(rom));
+                // restarting the cpu
                 V.fill(0);
                 stack.fill(0);
+                keys.reset();
+                load_ROM(std::move(rom));
                 pc = 0x200;
-
             }
             ImGui::SameLine();
+            if (pause)
+            {
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, activeHoverColor);
+                ImGui::PushStyleColor(ImGuiCol_Button, activeColor);
+            }
+            else
+            {
+                ImGui::PushStyleColor(ImGuiCol_Button, inactiveColorHover);
+                ImGui::PushStyleColor(ImGuiCol_Button, inactiveColor);
+            }
             if (ImGui::Button("PAUSE"))
             {
                 puts("PAUSE");
-                pause_counter = !pause ? pc : pause_counter;
+                pause_counter = !pause ? pc+2 : pause_counter;
+                keys.reset();
                 pause = true;
             }
+            ImGui::PopStyleColor(2);
             ImGui::SameLine();
+            if (!pause)
+            {
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, activeHoverColor);
+                ImGui::PushStyleColor(ImGuiCol_Button, activeColor);
+            }
+            else
+            {
+                ImGui::PushStyleColor(ImGuiCol_Button, inactiveColorHover);
+                ImGui::PushStyleColor(ImGuiCol_Button, inactiveColor);
+            }
             if (ImGui::Button("PLAY"))
             {
                 puts("PLAY");
                 pause = false;
             }
+            ImGui::PopStyleColor(2);
             ImGui::End();
         }
+
         ImGui::Render();
-        
+        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+        SDL_RenderPresent(window.get_renderer());
         SDL_RenderSetScale(window.get_renderer(), io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
-        if (!pause)
-        {
-            SDL_SetRenderDrawColor(window.get_renderer(), 0,0,0,0);
-            SDL_RenderClear(window.get_renderer());
-        }
-        if (pause) pc = pause_counter;
-        emulator();
-        std::this_thread::sleep_for(1.2ms);
+        SDL_SetRenderDrawColor(window.get_renderer(), 0,0,0,0);
+        SDL_RenderClear(window.get_renderer());
+
         for (std::size_t i = 0; i < window.buffer.size(); i++)
         {
             if (window.buffer.test(i))
                 window.draw_rect(i % BUFFER_WIDTH, i / BUFFER_WIDTH);
         }
-        if (!pause)
-        {
-            ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
-            SDL_RenderPresent(window.get_renderer());
-        }
     }
-    timer.join();
+}
+
+void CPU::run()
+{
+    timer_thread = std::thread(&CPU::timers_handler, this);
+    render_thread = std::thread(&CPU::render_handler, this);
+
+    while (pc < size && window.get_running())
+    {
+        emulator();
+        std::this_thread::sleep_for(1.2ms);
+    }
+
+    timer_thread.join();
+    render_thread.join();
 }
 
 
