@@ -86,7 +86,7 @@ CPU::CPU (std::string&& fileName)
 : pc (0x200)
 , window()
 , pause (false)
-, reset (false)
+, reset {false}
 {
     V.fill(0);
     stack.fill(0);
@@ -266,7 +266,7 @@ void CPU::_FX07()
 
 void CPU::_FX0A() // i don't like this idk how to call poll from a different thread T_T
 {
-    bool flag = true;
+    static bool flag = true;
     std::uint8_t k;
     while (flag && window.get_running() && !reset)
     {
@@ -284,6 +284,7 @@ void CPU::_FX0A() // i don't like this idk how to call poll from a different thr
     }
     V[x] = k;
     reset = false;
+    flag = true;
 }
 void CPU:: _FX15()
 {
@@ -327,7 +328,6 @@ void CPU::_FX65()
     I = I + x + 1;
 }
 
-
 void CPU::emulator()
 {
     opcode = (RAM[pc] << 8) | RAM[pc+1];
@@ -340,8 +340,6 @@ void CPU::emulator()
         pc = pause_counter;
     else 
         pc += 2;
-    // pc += 2;
-    Event::poll(window, keys);
     switch (opcode & 0xF000)
     {
         case 0x0000:
@@ -510,6 +508,7 @@ void CPU::load_ROM (const std::string&& fileName)
     fclose (file);
     std::memcpy(RAM.data(), sprites.data(), SPRITE_TABLE_SIZE);
     _00E0(); // clear screen
+    reset = false;
 }
 
 void CPU::timers_handler ()
@@ -647,8 +646,9 @@ void CPU::run()
     render_thread = std::thread(&CPU::render_handler, this);
     while (pc < size && window.get_running())
     {
+        Event::poll(window, keys);
         emulator();
-        std::this_thread::sleep_for(1.2ms);
+        std::this_thread::sleep_for(2ms);
     }
     
     timer_thread.join();
