@@ -644,6 +644,7 @@ void CPU::run()
 {
     timer_thread = std::thread(&CPU::timers_handler, this);
     render_thread = std::thread(&CPU::render_handler, this);
+
     while (pc < size && window.get_running())
     {
         Event::poll(window, keys);
@@ -658,5 +659,3 @@ void CPU::run()
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 }
-
-

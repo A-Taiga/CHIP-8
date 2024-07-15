@@ -12,11 +12,10 @@ LIBS =
 ifeq ($(UNAME_S), Darwin)
 	ECHO_MESSAGE = "OS X compiled"
 	LIBS += -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo `sdl2-config --libs`
-	LIBS += -L/usr/local/lib -L/opt/local/lib
+	LIBS += -L/usr/local/lib
 	CXXFLAGS += `sdl2-config --cflags`
 	CXXFLAGS += -I/usr/local/include -I/opt/local/include
 endif
-
 
 all: $(EXENAME)
 	@echo $(ECHO_MESSAGE)

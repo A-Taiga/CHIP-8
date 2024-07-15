@@ -17,7 +17,6 @@ class Window
     public:
         Window ();
         ~Window ();
-        void update ();
         bool& get_running ();
         void set_running (bool val);
         void draw_rect (int x, int y);

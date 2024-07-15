@@ -31,15 +31,15 @@ class CPU
         std::uint8_t    y;     // upper 4-bits of the lower byte
         std::uint8_t    nn;    // byte lowest 8 bits of the instruction
 
-        void _0NNN(); void _00E0(); void _00EE(); void _1NNN();
-        void _2NNN(); void _3XNN(); void _4XNN(); void _5XY0();
-        void _6XNN(); void _7XNN(); void _8XY0(); void _8XY1();
-        void _8XY2(); void _8XY3(); void _8XY4(); void _8XY5();
-        void _8XY6(); void _8XY7(); void _8XYE(); void _9XY0();
-        void _ANNN(); void _BNNN(); void _CXNN(); void _DXYN();
-        void _EX9E(); void _EXA1(); void _FX07(); void _FX0A();
-        void _FX15(); void _FX18(); void _FX1E(); void _FX29();
-        void _FX33(); void _FX55(); void _FX65();
+        void _0NNN (); void _00E0 (); void _00EE (); void _1NNN ();
+        void _2NNN (); void _3XNN (); void _4XNN (); void _5XY0 ();
+        void _6XNN (); void _7XNN (); void _8XY0 (); void _8XY1 ();
+        void _8XY2 (); void _8XY3 (); void _8XY4 (); void _8XY5 ();
+        void _8XY6 (); void _8XY7 (); void _8XYE (); void _9XY0 ();
+        void _ANNN (); void _BNNN (); void _CXNN (); void _DXYN ();
+        void _EX9E (); void _EXA1 (); void _FX07 (); void _FX0A ();
+        void _FX15 (); void _FX18 (); void _FX1E (); void _FX29 ();
+        void _FX33 (); void _FX55 (); void _FX65 ();
 
         Window          window;
         bool            pause;
@@ -49,12 +49,11 @@ class CPU
         std::thread     render_thread;
         std::size_t     size;
         
-        std::uint8_t random_byte();
+        std::uint8_t random_byte( );
         void load_ROM (const std::string&& fileName); 
         void timers_handler ();
         void render_handler ();
         void emulator ();
-        
 
     public:
         CPU();
